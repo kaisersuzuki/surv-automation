@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+TARGET_MP="${1:-/Volumes/surv-1761954427}"
+SMB_URL="${SMB_URL:-//kaisersuzuki@192.168.68.60/surveillance}"
+log(){ printf '[mount_surv] %s\n' "$*" >&2; }
+if [ ! -d "$TARGET_MP" ]; then
+  sudo install -d -m 0755 -o "$USER" -g staff "$TARGET_MP" || true
+fi
+if df "$TARGET_MP" >/dev/null 2>&1; then
+  log "Already mounted at $TARGET_MP"; exit 0
+fi
+: "${SMB_PASS:=${SMB_PASSWORD:-}}"
+if [ -z "${SMB_PASS}" ]; then
+  read -s -p "Password for ${SMB_URL#//*}:" SMB_PASS; echo
+fi
+set +e
+echo "$SMB_PASS" | mount_smbfs -N "${SMB_URL}" "$TARGET_MP"
+rc=$?
+set -e
+if [ $rc -ne 0 ]; then
+  if mount | grep -q "on $TARGET_MP .*smbfs" || df "$TARGET_MP" >/dev/null 2>&1; then
+    log "Mount reported error but target is mounted; continuing."
+    exit 0
+  fi
+  log "ERROR: mount_smbfs failed for '${SMB_URL}' -> '${TARGET_MP}'"
+  exit $rc
+fi
+if df "$TARGET_MP" >/dev/null 2>&1; then
+  log "Mounted OK at $TARGET_MP"; exit 0
+else
+  log "ERROR: mount succeeded but not accessible"; exit 1
+fi

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+ <dict>
+  <key>Label</key>
+  <string>com.kaisersuzuki.surv-sorter</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/surv_health_and_sort.sh</string>
+  </array>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>StandardOutPath</key>
+  <string>~/Library/Logs/surv_health_and_sort.log</string>
+  <key>StandardErrorPath</key>
+  <string>~/Library/Logs/surv_health_and_sort.log</string>
+
+  <!-- Keep lightweight; the runner handles mount health itself -->
+ </dict>
+</plist>

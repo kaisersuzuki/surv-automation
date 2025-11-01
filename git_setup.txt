@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# === Config ===
+REPO_DIR="${HOME}/surv-automation"
+GIT_REMOTE_OWNER="kaisersuzuki"            # change if needed
+GIT_REMOTE_NAME="surv-automation"          # repo name on GitHub
+BRANCH="main"
+
+# Live file sources (read-only copy; we DO NOT modify system files)
+SRC_FILES=(
+  "/usr/local/bin/sort_by_date_smb.sh"
+  "/usr/local/bin/sort_by_date_quiet.sh"
+  "/usr/local/bin/mount_surv"
+  "/usr/local/bin/ensure_surv_link.sh"
+  "${HOME}/Library/LaunchAgents/com.kaisersuzuki.surv-sorter.plist"
+  "/etc/newsyslog.d/surv_sorter.conf"
+)
+
+# Optional: include your "gold" stash if you’ve been keeping one
+# Add paths below if applicable (script will skip missing)
+GOLD_CANDIDATES=(
+  "/usr/local/share/surv-gold"     # if we created this earlier
+  "${HOME}/gold/surv"              # or this variant
+)
+
+# === Helpers ===
+say() { printf "%s\n" "$*" >&2; }
+exists() { command -v "$1" >/dev/null 2>&1; }
+
+# === Create repo skeleton ===
+say "Creating repo directory: ${REPO_DIR}"
+mkdir -p "${REPO_DIR}"/{files,launchd,newsyslog,gold}
+
+# === Copy live files into tracked tree (read-only backup) ===
+for f in "${SRC_FILES[@]}"; do
+  if [[ -e "$f" ]]; then
+    case "$f" in
+      */LaunchAgents/*)
+        cp -av "$f" "${REPO_DIR}/launchd/"
+        ;;
+      /etc/newsyslog.d/*)
+        # Need sudo to read reliably on some systems
+        sudo cp -av "$f" "${REPO_DIR}/newsyslog/"
+        # fix owner to user so git can track without sudo later
+        sudo chown -R "${USER}":"${USER}" "${REPO_DIR}/newsyslog"
+        ;;
+      *)
+        cp -av "$f" "${REPO_DIR}/files/"
+        ;;
+    esac
+  else
+    say "WARN: Skipping missing: $f"
+  fi
+done
+
+# === Copy gold directories if present ===
+for g in "${GOLD_CANDIDATES[@]}"; do
+  if [[ -e "$g" ]]; then
+    say "Copying gold: $g"
+    cp -a "$g" "${REPO_DIR}/gold/" || true
+  fi
+done
+
+# === .gitignore ===
+cat > "${REPO_DIR}/.gitignore" <<'EOF'
+# macOS cruft
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Logs / runtime artifacts
+*.log
+*.pid
+*.swp
+*.tmp
+*.bak
+*~ 
+
+# Launchd compiled caches
+*.plist.backup
+*.plist~*
+
+# Don’t accidentally add passwords or tokens if you make one later
+.env
+secrets/
+EOF
+
+# === README ===
+cat > "${REPO_DIR}/README.md" <<'EOF'
+# surv-automation
+
+Mac surveillance mount + sorter automation.
+
+## Contents
+- `files/` — scripts copied from `/usr/local/bin`  
+  - `sort_by_date_smb.sh`, `sort_by_date_quiet.sh`
+  - `mount_surv`, `ensure_surv_link.sh`
+- `launchd/` — LaunchAgent plist copied from `~/Library/LaunchAgents/`
+  - `com.kaisersuzuki.surv-sorter.plist`
+- `newsyslog/` — log rotation copied from `/etc/newsyslog.d/`
+  - `surv_sorter.conf`
+- `gold/` — optional "gold" backups if present on this machine
+
+> These are *snapshotted copies* for version control. Editing files here does not change your live system.
+> To deploy changes, copy back to their live paths and reload launchctl/newsyslog as appropriate.
+
+## Quick notes
+- LaunchAgent runs the health+sort runner on login and every 15 minutes.
+- Logs: `~/Library/Logs/surv_health_and_sort.log` (rotated by newsyslog).
+- Sorter avoids reprocessing via marker files.
+
+## Deploy (manual)
+1) Review changes  
+2) Copy script(s) back to `/usr/local/bin` (preserve `+x`)  
+3) Copy plist back to `~/Library/LaunchAgents/` and run:

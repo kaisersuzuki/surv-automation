@@ -1,0 +1,19 @@
+# macOS
+.DS_Store
+.AppleDouble
+.apdisk
+
+# Logs / archives
+*.log
+*.gz
+*.zip
+*.tar
+*.tgz
+
+# Python/cache (if any future scripts)
+__pycache__/
+*.pyc
+
+# Local state
+*.swp
+*.swo
